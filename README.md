@@ -31,6 +31,22 @@ Output:
     after
 
 
+Run from kernel built with `kernel_worker`:
+
+    # Assuming $DART_SDK points to the sdk directory
+    dart $DART_SDK/bin/snapshots/kernel_worker.dart.snapshot \
+    --dart-sdk-summary $DART_SDK/lib/_internal/vm_platform_strong.dill \
+    --output=bin/try.worker.dill --packages-file .packages --no-summary-only \
+    --multi-root-scheme org-dartlang-app --exclude-non-sources \
+    --source org-dartlang-app:///bin/try.dart
+    dart bin/try.worker.dill
+
+Output:
+   before
+   after
+   running
+
+
 Run from kernel built with `build_runner`:
 
     pub get
@@ -50,3 +66,5 @@ Output:
 build_runner build`.
 
 Take a diff to see that there are small differences around the async methods.
+
+`kernel_dumps/from_worker` is identical to `kernel_dumps/from_build_runner`.
