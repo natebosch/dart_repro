@@ -2,3 +2,7 @@ name: dart_repro
 
 environment:
   sdk: ">=2.0.0 <3.0.0"
+
+dependencies:
+  analyzer: ^0.33.0
+  path: ^1.6.0
