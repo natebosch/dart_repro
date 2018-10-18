@@ -1,89 +1,44 @@
-import 'package:analyzer/src/generated/engine.dart' show TimestampedData;
+import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:path/path.dart' as p;
 
 import 'asset_id.dart';
 
 class PreloadedUriResolver implements UriResolver {
-  final _knownAssets = <Uri, Source>{};
+  final _cachedAssets = Set<AssetId>();
+  final resourceProvider = MemoryResourceProvider();
 
   /// Read all [assets] with the extension '.dart' using the [read] function up
   /// front and cache them as a [Source].
   void addAssets(Iterable<AssetId> assets, String Function(AssetId) read) {
-    for (var asset in assets.where((asset) => asset.path.endsWith('.dart'))) {
-      var uri = assetUri(asset);
-      if (!_knownAssets.containsKey(uri)) {
-        _knownAssets[uri] = AssetSource(asset, read(asset));
-      }
+    for (var asset in assets
+        .where((asset) => asset.path.endsWith('.dart'))
+        .where(_cachedAssets.add)) {
+      resourceProvider.newFile(assetPath(asset), read(asset));
     }
   }
 
   @override
   Source resolveAbsolute(Uri uri, [Uri actualUri]) {
-    return _knownAssets[uri];
+    if (uri.isScheme('dart')) return null;
+    final id = uri.isScheme('package')
+        ? AssetId(uri.pathSegments.first,
+            p.url.join('lib', p.url.joinAll(uri.pathSegments.skip(1))))
+        : uri.isScheme('asset')
+            ? AssetId(
+                uri.pathSegments.first, p.url.joinAll(uri.pathSegments.skip(1)))
+            : AssetId(p.split(uri.path).elementAt(1),
+                p.joinAll(p.split(uri.path).skip(2)));
+    if (!_cachedAssets.contains(id)) return null;
+    return resourceProvider.getFile(assetPath(id)).createSource();
   }
 
   @override
-  Uri restoreAbsolute(Source source) {
-    throw UnimplementedError();
-  }
+  Uri restoreAbsolute(Source source) => p.toUri(source.fullName);
 }
 
-class AssetSource implements Source {
-  final AssetId _assetId;
-  final String _content;
+Uri assetUri(AssetId assetId) =>
+    p.toUri(p.url.join('/${assetId.package}', assetId.path));
 
-  AssetSource(this._assetId, this._content);
-
-  @override
-  TimestampedData<String> get contents => TimestampedData(0, _content);
-
-  @override
-  String get encoding => '${assetUri(_assetId)}';
-
-  @override
-  String get fullName => '${assetUri(_assetId)}';
-
-  @override
-  int get hashCode => _assetId.hashCode;
-
-  @override
-  bool get isInSystemLibrary => false;
-
-  @override
-  Source get librarySource => null;
-
-  @override
-  int get modificationStamp => 0;
-
-  @override
-  String get shortName => p.basename(_assetId.path);
-
-  @override
-  Source get source => this;
-
-  @override
-  Uri get uri => assetUri(_assetId);
-
-  @override
-  UriKind get uriKind {
-    if (_assetId.path.startsWith('lib/')) return UriKind.PACKAGE_URI;
-    return UriKind.FILE_URI;
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      other is AssetSource && other._assetId == _assetId;
-
-  @override
-  bool exists() => true;
-
-  @override
-  String toString() => 'AssetSource[${assetUri(_assetId)}]';
-}
-
-Uri assetUri(AssetId assetId) => assetId.path.startsWith('lib/')
-    ? Uri(
-        scheme: 'package',
-        path: '${assetId.package}/${assetId.path.replaceFirst('lib/', '')}')
-    : Uri(scheme: 'asset', path: '${assetId.package}/${assetId.path}');
+String assetPath(AssetId assetId) =>
+    p.url.join('/${assetId.package}', assetId.path);

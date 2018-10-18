@@ -1,11 +1,16 @@
-import 'package:analyzer/src/context/context.dart' show AnalysisContextImpl;
+import 'package:analyzer/src/dart/analysis/driver.dart';
+import 'package:analyzer/src/dart/analysis/file_state.dart';
 import 'package:analyzer/src/generated/engine.dart'
-    show AnalysisContext, AnalysisEngine, InternalAnalysisContext;
+    show AnalysisEngine, AnalysisOptionsImpl;
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/summary/package_bundle_reader.dart'
-    show InSummaryUriResolver, InputPackagesResultProvider, SummaryDataStore;
+    show InSummaryUriResolver, SummaryDataStore;
 import 'package:analyzer/file_system/physical_file_system.dart'
     show PhysicalResourceProvider;
+import 'package:analyzer/src/dart/analysis/byte_store.dart'
+    show MemoryByteStore;
+import 'package:analyzer/src/dart/analysis/performance_logger.dart'
+    show PerformanceLog;
 import 'package:analyzer/src/summary/summary_sdk.dart' show SummaryBasedDartSdk;
 
 import 'preloaded_uri_resolver.dart';
@@ -15,7 +20,7 @@ import 'preloaded_uri_resolver.dart';
 ///
 /// Any code which is not covered by the summaries must be resolvable through
 /// [preloadedUriResolver].
-AnalysisContext buildAnalyzer(String sdkSummary, List<String> summaryPaths,
+AnalysisDriver buildAnalyzer(String sdkSummary, List<String> summaryPaths,
     PreloadedUriResolver preloadedUriResolver) {
   AnalysisEngine.instance.processRequiredPlugins();
   var sdk = SummaryBasedDartSdk(sdkSummary, true);
@@ -28,10 +33,19 @@ AnalysisContext buildAnalyzer(String sdkSummary, List<String> summaryPaths,
   var resolvers = [preloadedUriResolver, sdkResolver, summaryResolver];
   var sourceFactory = SourceFactory(resolvers);
 
-  var context = AnalysisEngine.instance.createAnalysisContext()
-    ..sourceFactory = sourceFactory;
-  (context as AnalysisContextImpl).resultProvider = InputPackagesResultProvider(
-      context as InternalAnalysisContext, summaryData);
+  var logger = PerformanceLog(null);
+  var scheduler = AnalysisDriverScheduler(logger);
+  var driver = AnalysisDriver(
+      scheduler,
+      logger,
+      preloadedUriResolver.resourceProvider,
+      MemoryByteStore(),
+      FileContentOverlay(),
+      null,
+      sourceFactory,
+      AnalysisOptionsImpl(),
+      externalSummaries: summaryData);
 
-  return context;
+  scheduler.start();
+  return driver;
 }

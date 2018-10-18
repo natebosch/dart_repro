@@ -5,7 +5,7 @@ import 'package:dart_repro/asset_id.dart';
 import 'package:dart_repro/preloaded_uri_resolver.dart';
 import 'package:path/path.dart' as p;
 
-void main() {
+void main() async {
   var summaryPath = createSummary();
   var sdkSummary = findSdkSummary();
   var preloadedUriResolver = PreloadedUriResolver();
@@ -14,9 +14,8 @@ void main() {
 
   var analyzer = buildAnalyzer(sdkSummary, [summaryPath], preloadedUriResolver);
 
-  var source =
-      analyzer.sourceFactory.forUri('package:some_package/some_path.dart');
-  var library = analyzer.computeLibraryElement(source);
+  var library =
+      await analyzer.getLibraryByUri('package:some_package/some_path.dart');
   print(library.source.fullName);
   print(library.units.first.unit.declaredElement.name);
 }
@@ -37,7 +36,6 @@ String createSummary() {
     print(result.stderr);
     throw 'Failed to create summary';
   }
-  print('Created summary at $library.sum');
   return '$library.sum';
 }
 
