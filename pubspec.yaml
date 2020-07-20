@@ -1,4 +1,4 @@
 name: dart_repro
 
 environment:
-  sdk: ">=2.3.0 <3.0.0"
+  sdk: ">=2.8.0 <3.0.0"
