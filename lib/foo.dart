@@ -1,0 +1,1 @@
+typedef D = Duration;
